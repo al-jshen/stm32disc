@@ -3,14 +3,17 @@
 
 use aux::{Direction, Led, Leds};
 use core::convert::TryInto;
+use core::f32::consts::PI;
 use cortex_m::{asm, iprint, iprintln};
 use cortex_m_rt::entry;
-use lsm303agr::{Lsm303agr, Measurement};
+use lsm303agr::{Lsm303agr, Measurement, UnscaledMeasurement};
+use micromath::F32Ext;
 use panic_itm as _;
 use stm32f3xx_hal::{self as hal, pac, prelude::*};
 
 const CYCLES_PER_SECOND: u32 = 8_000_000;
 const CYCLES_PER_MS: u32 = 8_000;
+const OCTANT: f32 = PI / 4.;
 
 #[entry]
 fn main() -> ! {
@@ -53,33 +56,48 @@ fn main() -> ! {
         .set_mag_odr(lsm303agr::MagOutputDataRate::Hz50)
         .unwrap();
 
-    let mut ctr1 = 0;
-    let mut ctr2 = 0;
-
     loop {
-        let data = sensor.mag_data();
+        let data = sensor.mag_data_unscaled();
 
         if data.is_err() {
-            ctr1 += 1;
-            iprintln!(&mut itm.stim[0], "{}", ctr1);
+            // iprintln!(&mut itm.stim[0], "{}", ctr1);
             continue;
         }
-        ctr2 += 1;
 
-        iprintln!(&mut itm.stim[0], "{} - {:?}", ctr2, data);
+        let UnscaledMeasurement { x, y, z } = data.unwrap();
+        let x = x as f32 * 1.5;
+        let y = y as f32 * 1.5;
+        let z = z as f32 * 1.5;
 
-        let Measurement { x, y, z } = data.unwrap();
+        let theta = (y).atan2(x); // in radians
 
-        let dir = match (x > 0, y > 0) {
-            (true, true) => Direction::Southeast,
-            (true, false) => Direction::Southwest,
-            (false, true) => Direction::Northeast,
-            (false, false) => Direction::Northwest,
+        let dir = if theta < -7. * PI / 8. {
+            Direction::North
+        } else if theta < -5. * PI / 8. {
+            Direction::Northwest
+        } else if theta < -3. * PI / 8. {
+            Direction::West
+        } else if theta < -PI / 8. {
+            Direction::Southwest
+        } else if theta < PI / 8. {
+            Direction::South
+        } else if theta < 3. * PI / 8. {
+            Direction::Southeast
+        } else if theta < 5. * PI / 8. {
+            Direction::East
+        } else if theta < 7. * PI / 8. {
+            Direction::Northeast
+        } else {
+            Direction::North
         };
 
         leds.iter_mut().for_each(|l| l.off());
         leds[dir as usize].on();
 
-        asm::delay(CYCLES_PER_SECOND / 10);
+        let magnitude = (x * x + y * y + z * z).sqrt();
+
+        iprintln!(&mut itm.stim[0], "{:?}", magnitude);
+
+        asm::delay(CYCLES_PER_MS * 100);
     }
 }
