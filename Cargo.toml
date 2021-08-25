@@ -1,8 +1,13 @@
 [package]
-name = "stm32disc"
+name = "rsbin"
 version = "0.1.0"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+cortex-m = "*"
+cortex-m-rt = "*"
+panic-itm = "*"
+stm32f3xx-hal = { version = "*", features = ["ld", "rt", "stm32f303xc"] }
+lsm303agr = "*"
