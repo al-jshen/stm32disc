@@ -52,50 +52,53 @@ fn main() -> ! {
 
     let mut sensor = Lsm303agr::new_with_i2c(i2c);
     sensor.init().unwrap();
-    sensor.set_accel_scale(lsm303agr::AccelScale::G16).unwrap();
-    sensor.set_accel_mode(lsm303agr::AccelMode::Normal).unwrap();
     sensor
-        .set_accel_odr(lsm303agr::AccelOutputDataRate::Khz1_344)
+        .set_mag_odr(lsm303agr::MagOutputDataRate::Hz50)
         .unwrap();
 
-    let mut max_accel = 0;
-    let mut recording = false;
-    let mut ctr = 0;
-
     loop {
-        let data = sensor.accel_data();
+        let data = sensor.mag_data_unscaled();
 
         if data.is_err() {
+            // iprintln!(&mut itm.stim[0], "{}", ctr1);
             continue;
         }
 
-        let Measurement { x, .. } = data.unwrap();
-        let x = x.abs();
+        let UnscaledMeasurement { x, y, z } = data.unwrap();
+        let x = x as f32 * 1.5;
+        let y = y as f32 * 1.5;
+        let z = z as f32 * 1.5;
 
-        // above threshold, start recording
-        if x > 1000 {
-            if recording {
-                max_accel = x.max(max_accel);
-                ctr += 1;
-            } else {
-                recording = true;
-                max_accel = x;
-            }
-        } else {
-            // reset
-            if recording {
-                iprintln!(
-                    &mut itm.stim[0],
-                    "{} g's across {} ticks",
-                    max_accel as f32 / 1000.,
-                    ctr
-                );
-                max_accel = 0;
-                ctr = 0;
-                recording = false;
-            }
-        }
+        iprintln!(&mut itm.stim[0], "{}\t{}\t{}", x, y, z);
+        // let theta = (y).atan2(x); // in radians
 
-        asm::delay(CYCLES_PER_MS / 2);
+        // let dir = if theta < -7. * PI / 8. {
+        //     Direction::North
+        // } else if theta < -5. * PI / 8. {
+        //     Direction::Northwest
+        // } else if theta < -3. * PI / 8. {
+        //     Direction::West
+        // } else if theta < -PI / 8. {
+        //     Direction::Southwest
+        // } else if theta < PI / 8. {
+        //     Direction::South
+        // } else if theta < 3. * PI / 8. {
+        //     Direction::Southeast
+        // } else if theta < 5. * PI / 8. {
+        //     Direction::East
+        // } else if theta < 7. * PI / 8. {
+        //     Direction::Northeast
+        // } else {
+        //     Direction::North
+        // };
+
+        // leds.iter_mut().for_each(|l| l.off());
+        // leds[dir as usize].on();
+
+        // let magnitude = (x * x + y * y + z * z).sqrt();
+
+        // iprintln!(&mut itm.stim[0], "{:?}", magnitude);
+
+        asm::delay(CYCLES_PER_MS * 100);
     }
 }
