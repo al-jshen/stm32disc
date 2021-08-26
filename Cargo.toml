@@ -6,10 +6,11 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-aux = { path = "aux" }
+# aux = { path = "aux" }
 cortex-m = "*"
 cortex-m-rt = { version = "*", features = ["device"] }
 panic-itm = "*"
 stm32f3xx-hal = { version = "*", features = ["ld", "rt", "stm32f303xc"] }
 lsm303agr = "*"
+l3gd20 = "*"
 micromath = "*"

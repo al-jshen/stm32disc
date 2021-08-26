@@ -1,24 +1,29 @@
 #![no_std]
 #![no_main]
 
-use aux::{Direction, Led, Leds};
 use core::convert::TryInto;
 use core::f32::consts::PI;
-use cortex_m::{asm, iprint, iprintln};
+use cortex_m::iprintln;
 use cortex_m_rt::entry;
-use lsm303agr::{Lsm303agr, Measurement, UnscaledMeasurement};
-use micromath::F32Ext;
+use hal::{
+    delay::Delay,
+    spi::{config::Config, Spi},
+};
+use l3gd20::{I16x3, L3gd20, Odr};
+use lsm303agr::{Lsm303agr, Measurement};
+// use micromath::F32Ext;
 use panic_itm as _;
+// use stm32disc::{Direction, Led, Leds};
 use stm32f3xx_hal::{self as hal, pac, prelude::*};
 
-const CYCLES_PER_SECOND: u32 = 8_000_000;
-const CYCLES_PER_MS: u32 = 8_000;
-const OCTANT: f32 = PI / 4.;
+const TS_MS: u32 = 100;
+const TS_S: f32 = 0.1;
 
 #[entry]
 fn main() -> ! {
     let cp = cortex_m::Peripherals::take().unwrap();
     let mut itm = cp.ITM;
+    let mut syst = cp.SYST;
 
     let dp = pac::Peripherals::take().unwrap();
 
@@ -26,10 +31,9 @@ fn main() -> ! {
     let mut rcc = dp.RCC.constrain();
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
-    let mut gpiob = dp.GPIOB.split(&mut rcc.ahb);
+    let mut delay = Delay::new(syst, clocks);
 
-    let mut gpioe = dp.GPIOE.split(&mut rcc.ahb);
-    let mut leds = Leds::new(gpioe);
+    let mut gpiob = dp.GPIOB.split(&mut rcc.ahb);
 
     let mut scl =
         gpiob
@@ -52,50 +56,82 @@ fn main() -> ! {
 
     let mut sensor = Lsm303agr::new_with_i2c(i2c);
     sensor.init().unwrap();
-    sensor.set_accel_scale(lsm303agr::AccelScale::G16).unwrap();
-    sensor.set_accel_mode(lsm303agr::AccelMode::Normal).unwrap();
+    sensor.set_accel_scale(lsm303agr::AccelScale::G4).unwrap();
     sensor
-        .set_accel_odr(lsm303agr::AccelOutputDataRate::Khz1_344)
+        .set_accel_mode(lsm303agr::AccelMode::HighResolution)
+        .unwrap();
+    sensor
+        .set_accel_odr(lsm303agr::AccelOutputDataRate::Hz100)
         .unwrap();
 
-    let mut max_accel = 0;
-    let mut recording = false;
-    let mut ctr = 0;
+    let mut gpioe = dp.GPIOE.split(&mut rcc.ahb);
+    let mut ncs = gpioe
+        .pe3
+        .into_push_pull_output(&mut gpioe.moder, &mut gpioe.otyper);
+    ncs.set_high().unwrap();
+
+    let mut gpioa = dp.GPIOA.split(&mut rcc.ahb);
+    let mut sck =
+        gpioa
+            .pa5
+            .into_af5_push_pull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+    let mut miso =
+        gpioa
+            .pa6
+            .into_af5_push_pull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+    let mut mosi =
+        gpioa
+            .pa7
+            .into_af5_push_pull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+
+    sck.internal_pull_up(&mut gpioa.pupdr, true);
+    miso.internal_pull_up(&mut gpioa.pupdr, true);
+    mosi.internal_pull_up(&mut gpioa.pupdr, true);
+
+    let spi = Spi::new(
+        dp.SPI1,
+        (sck, miso, mosi),
+        Config::default(),
+        clocks,
+        &mut rcc.apb2,
+    );
+
+    let mut gyro = L3gd20::new(spi, ncs).unwrap();
+    gyro.set_scale(l3gd20::Scale::Dps500).unwrap();
+    gyro.set_odr(Odr::Hz190).unwrap();
+
+    let sens = gyro.scale().unwrap();
 
     loop {
-        let data = sensor.accel_data();
+        let accel = sensor.accel_data();
 
-        if data.is_err() {
+        if accel.is_err() {
             continue;
         }
 
-        let Measurement { x, .. } = data.unwrap();
-        let x = x.abs();
+        let Measurement {
+            x: ax,
+            y: ay,
+            z: az,
+        } = accel.unwrap();
 
-        // above threshold, start recording
-        if x > 1000 {
-            if recording {
-                max_accel = x.max(max_accel);
-                ctr += 1;
-            } else {
-                recording = true;
-                max_accel = x;
-            }
-        } else {
-            // reset
-            if recording {
-                iprintln!(
-                    &mut itm.stim[0],
-                    "{} g's across {} ticks",
-                    max_accel as f32 / 1000.,
-                    ctr
-                );
-                max_accel = 0;
-                ctr = 0;
-                recording = false;
-            }
-        }
+        let I16x3 {
+            x: gx,
+            y: gy,
+            z: gz,
+        } = gyro.gyro().unwrap();
 
-        asm::delay(CYCLES_PER_MS / 2);
+        iprintln!(
+            &mut itm.stim[0],
+            "{} {} {} {} {} {}",
+            ax + 40,
+            ay,
+            az - 1000,
+            sens.degrees(gx) * TS_S,
+            sens.degrees(gy) * TS_S,
+            sens.degrees(gz) * TS_S
+        );
+
+        delay.delay_ms(TS_MS);
     }
 }

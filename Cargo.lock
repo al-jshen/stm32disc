@@ -9,13 +9,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
-name = "aux"
-version = "0.1.0"
-dependencies = [
- "stm32f3xx-hal",
-]
-
-[[package]]
 name = "bare-metal"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -125,6 +118,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86fbafcea0dea120d8ed8af67ddbf82afc031f1d3b064920645db8d061781e2c"
 dependencies = [
  "num",
+]
+
+[[package]]
+name = "l3gd20"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86113fcb2b542fbd5636a7057fd1f0c39ea38b516383b557114027d5bd0cf491"
+dependencies = [
+ "embedded-hal",
 ]
 
 [[package]]
@@ -309,9 +311,9 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 name = "stm32disc"
 version = "0.1.0"
 dependencies = [
- "aux",
  "cortex-m",
  "cortex-m-rt 0.7.0",
+ "l3gd20",
  "lsm303agr",
  "micromath",
  "panic-itm",
