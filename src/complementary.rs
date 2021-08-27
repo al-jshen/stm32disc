@@ -6,7 +6,6 @@ use cortex_m::iprintln;
 use cortex_m_rt::entry;
 use hal::{
     delay::Delay,
-    pac::TIM2,
     spi::{config::Config, Spi},
 };
 use l3gd20::{I16x3, L3gd20, Odr};
@@ -16,10 +15,8 @@ use panic_itm as _;
 // use stm32disc::{Direction, Led, Leds};
 use stm32f3xx_hal::{self as hal, pac, prelude::*};
 
-const TS_US: u32 = 1800;
-const TS_MS: f32 = TS_US as f32 / 1000.;
+const TS_MS: u32 = 1000 / 95;
 const TS_S: f32 = TS_MS as f32 / 1000.;
-const CLOCKSPD: u32 = 8_000_000;
 const ALPHA: f32 = 0.98;
 const RAD_TO_DEG: f32 = 180. / core::f32::consts::PI;
 
@@ -31,15 +28,9 @@ fn main() -> ! {
 
     let dp = pac::Peripherals::take().unwrap();
 
-    dp.RCC.apb1enr.write(|w| w.tim2en().set_bit());
-
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
-
-    let tim = unsafe { &*TIM2::ptr() };
-
-    tim.cr1.write(|w| w.dir().up());
 
     let mut delay = Delay::new(syst, clocks);
 
@@ -71,7 +62,7 @@ fn main() -> ! {
         .set_accel_mode(lsm303agr::AccelMode::HighResolution)
         .unwrap();
     sensor
-        .set_accel_odr(lsm303agr::AccelOutputDataRate::Hz400)
+        .set_accel_odr(lsm303agr::AccelOutputDataRate::Hz100)
         .unwrap();
 
     let mut gpioe = dp.GPIOE.split(&mut rcc.ahb);
@@ -107,8 +98,8 @@ fn main() -> ! {
     );
 
     let mut gyro = L3gd20::new(spi, ncs).unwrap();
-    gyro.set_scale(l3gd20::Scale::Dps500).unwrap();
-    gyro.set_odr(Odr::Hz380).unwrap();
+    gyro.set_scale(l3gd20::Scale::Dps250).unwrap();
+    gyro.set_odr(Odr::Hz95).unwrap();
 
     let sens = gyro.scale().unwrap();
 
@@ -118,7 +109,7 @@ fn main() -> ! {
     let mut gyro_bias_y = 0.;
 
     // welford mean
-    for i in 1..(1_000) {
+    for i in 1..501 {
         let I16x3 { x: gx, y: gy, .. } = gyro.gyro().unwrap();
         let delta_x = gx as f32 - gyro_bias_x;
         gyro_bias_x += delta_x / i as f32;
@@ -129,49 +120,9 @@ fn main() -> ! {
     let gyro_bias_x = gyro_bias_x as i16;
     let gyro_bias_y = gyro_bias_y as i16;
 
-    // accel calibration
-    let mut accel_calib_ctr = 1;
-
-    let mut accel_bias_x = 0.;
-    let mut accel_bias_y = 0.;
-    let mut accel_bias_z = 0.;
-
-    loop {
-        if accel_calib_ctr > (1_000) {
-            break;
-        }
-
-        let accel = sensor.accel_data();
-
-        if accel.is_err() {
-            continue;
-        }
-
-        let Measurement {
-            x: ax,
-            y: ay,
-            z: az,
-        } = accel.unwrap();
-
-        let delta_x = ax as f32 - accel_bias_x;
-        accel_bias_x += delta_x / accel_calib_ctr as f32;
-        let delta_y = ay as f32 - accel_bias_y;
-        accel_bias_y += delta_y / accel_calib_ctr as f32;
-        let delta_z = az as f32 - accel_bias_z;
-        accel_bias_z += delta_z / accel_calib_ctr as f32;
-
-        accel_calib_ctr += 1;
-    }
-
-    let accel_bias_x = accel_bias_x as i32;
-    let accel_bias_y = accel_bias_y as i32;
-    let accel_bias_z = accel_bias_z as i32 - 1000;
-
     let mut roll = 0.;
     let mut pitch = 0.;
 
-    tim.cr1.write(|w| w.cen().set_bit());
-
     loop {
         let accel = sensor.accel_data();
 
@@ -185,26 +136,19 @@ fn main() -> ! {
             z: az,
         } = accel.unwrap();
 
-        let ax = ax - accel_bias_x;
-        let ay = ay - accel_bias_y;
-        let az = az - accel_bias_z;
-
         let I16x3 { x: gx, y: gy, .. } = gyro.gyro().unwrap();
-        let t = tim.cnt.read().cnt().bits();
-        let dt = t as f32 / CLOCKSPD as f32; // 8 mhz clock ticks to seconds
-        tim.cnt.write(|w| w.cnt().bits(0));
 
         // complementary filter
         let accel_roll = (ay as f32).atan2(az as f32) * RAD_TO_DEG;
-        let gyro_roll = sens.degrees(gx - gyro_bias_x) * dt + roll;
+        let gyro_roll = sens.degrees(gx - gyro_bias_x) * TS_S + roll;
         roll = ALPHA * gyro_roll + (1. - ALPHA) * accel_roll;
 
         let accel_pitch = (ax as f32).atan2(az as f32) * RAD_TO_DEG;
-        let gyro_pitch = sens.degrees(gy - gyro_bias_y) * dt + pitch;
+        let gyro_pitch = sens.degrees(gy - gyro_bias_y) * TS_S + pitch;
         pitch = ALPHA * gyro_pitch + (1. - ALPHA) * accel_pitch;
 
-        iprintln!(&mut itm.stim[0], "{} {} {}", roll, pitch, dt);
+        iprintln!(&mut itm.stim[0], "{} {}", roll, pitch);
 
-        delay.delay_us(TS_US);
+        delay.delay_ms(TS_MS);
     }
 }

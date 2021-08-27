@@ -121,6 +121,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "generic-array"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "667f6ea017b297ec65b8a108c6e9ad6879460721fb3b6b23abf690970147fc28"
+dependencies = [
+ "typenum",
+]
+
+[[package]]
 name = "l3gd20"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -137,6 +146,31 @@ checksum = "628ca499901663b3c877ba17dca72a672df9a2296131db1c814a74b9036e41e2"
 dependencies = [
  "embedded-hal",
  "nb 1.0.0",
+]
+
+[[package]]
+name = "m"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9199148efbf3463493dd58c03a921add4623147739b9acd15f339b1dc5bfd677"
+
+[[package]]
+name = "madgwick"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52760a80742f3053ff3b578eb14df5a881538584e22524ac915102dbf274b1bc"
+dependencies = [
+ "m",
+ "mat",
+]
+
+[[package]]
+name = "mat"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8401e35d18e3132a68bed048083960c701cdb5ad386815ef5661863cc6da7ebd"
+dependencies = [
+ "generic-array",
 ]
 
 [[package]]
@@ -315,6 +349,7 @@ dependencies = [
  "cortex-m-rt 0.7.0",
  "l3gd20",
  "lsm303agr",
+ "madgwick",
  "micromath",
  "panic-itm",
  "stm32f3xx-hal",
@@ -362,6 +397,12 @@ dependencies = [
  "quote",
  "unicode-xid",
 ]
+
+[[package]]
+name = "typenum"
+version = "1.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "879f6906492a7cd215bfa4cf595b600146ccfac0c79bcbd1f3000162af5e8b06"
 
 [[package]]
 name = "unicode-xid"
