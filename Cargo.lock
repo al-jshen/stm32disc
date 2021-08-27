@@ -139,6 +139,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "libm"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7d73b3f436185384286bd8098d17ec07c9a7d2388a6599f824d8502b529702a"
+
+[[package]]
 name = "lsm303agr"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -348,6 +354,7 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt 0.7.0",
  "l3gd20",
+ "libm",
  "lsm303agr",
  "madgwick",
  "micromath",

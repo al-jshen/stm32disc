@@ -14,9 +14,10 @@ use lsm303agr::{Lsm303agr, Measurement};
 use micromath::F32Ext;
 use panic_itm as _;
 // use stm32disc::{Direction, Led, Leds};
+use libm::atan2f;
 use stm32f3xx_hal::{self as hal, pac, prelude::*};
 
-const TS_US: u32 = 1800;
+const TS_US: u32 = 20000;
 const TS_MS: f32 = TS_US as f32 / 1000.;
 const TS_S: f32 = TS_MS as f32 / 1000.;
 const CLOCKSPD: u32 = 8_000_000;
@@ -195,11 +196,13 @@ fn main() -> ! {
         tim.cnt.write(|w| w.cnt().bits(0));
 
         // complementary filter
-        let accel_roll = (ay as f32).atan2(az as f32) * RAD_TO_DEG;
+        // let accel_roll = (ay as f32).atan2(az as f32) * RAD_TO_DEG;
+        let accel_roll = atan2f(ay as f32, az as f32) * RAD_TO_DEG;
         let gyro_roll = sens.degrees(gx - gyro_bias_x) * dt + roll;
         roll = ALPHA * gyro_roll + (1. - ALPHA) * accel_roll;
 
-        let accel_pitch = (ax as f32).atan2(az as f32) * RAD_TO_DEG;
+        // let accel_pitch = (ax as f32).atan2(az as f32) * RAD_TO_DEG;
+        let accel_pitch = atan2f(ax as f32, az as f32) * RAD_TO_DEG;
         let gyro_pitch = sens.degrees(gy - gyro_bias_y) * dt + pitch;
         pitch = ALPHA * gyro_pitch + (1. - ALPHA) * accel_pitch;
 
