@@ -196,14 +196,12 @@ fn main() -> ! {
         tim.cnt.write(|w| w.cnt().bits(0));
 
         // complementary filter
-        // let accel_roll = (ay as f32).atan2(az as f32) * RAD_TO_DEG;
-        let accel_roll = atan2f(ay as f32, az as f32) * RAD_TO_DEG;
-        let gyro_roll = sens.degrees(gx - gyro_bias_x) * dt + roll;
+        let accel_roll = atan2f(ay as f32, az as f32);
+        let gyro_roll = sens.radians(gx - gyro_bias_x) * dt + roll;
         roll = ALPHA * gyro_roll + (1. - ALPHA) * accel_roll;
 
-        // let accel_pitch = (ax as f32).atan2(az as f32) * RAD_TO_DEG;
-        let accel_pitch = atan2f(ax as f32, az as f32) * RAD_TO_DEG;
-        let gyro_pitch = sens.degrees(gy - gyro_bias_y) * dt + pitch;
+        let accel_pitch = atan2f(ax as f32, az as f32);
+        let gyro_pitch = sens.radians(gy - gyro_bias_y) * dt + pitch;
         pitch = ALPHA * gyro_pitch + (1. - ALPHA) * accel_pitch;
 
         iprintln!(&mut itm.stim[0], "{} {} {}", roll, pitch, dt);
